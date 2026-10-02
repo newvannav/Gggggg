@@ -9,6 +9,16 @@ export interface NearbyShopsResponse {
   readonly serverTimestamp: string;
 }
 
+/** Marker point carrying the full shop payload so banner taps can route by id. */
+export interface NearbyShopMapPoint {
+  readonly lat: number;
+  readonly lng: number;
+  readonly label?: string;
+  readonly iconUrl?: string | null;
+  readonly subtitle?: string;
+  readonly shop: ShopDto;
+}
+
 /**
  * Thin typed facade over the NestJS backend (emarketplace-backend):
  *   GET   /v1/shops/nearby?latitude&longitude&radiusKm
@@ -34,13 +44,13 @@ export class ShopApiService {
   }
 
   /** Maps wire ShopDto → <google-map> marker points with banner subtitles. */
-  public toMapPoints(shops: readonly ShopDto[]): readonly (ShopDto & { id: string; lat: number; lng: number; label: string; subtitle: string })[] {
+  public toMapPoints(shops: readonly ShopDto[]): readonly NearbyShopMapPoint[] {
     return shops.map((s) => ({
-      ...s,
-      id: `shop-${s.id}`,
+      shop: s,
       lat: s.latitude,
       lng: s.longitude,
       label: s.name,
+      iconUrl: s.logoUrl,
       subtitle:
         `${s.distanceKm?.toFixed(1) ?? '?'} km · $${s.estimatedDeliveryFee?.toFixed(2) ?? '—'} delivery` +
         (s.isOpenNow === false ? ' · Closed now' : ''),

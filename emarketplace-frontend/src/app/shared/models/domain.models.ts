@@ -63,6 +63,8 @@ export interface ProductVariantDto {
   readonly stockQuantity: number;
   readonly allowBackorder: boolean;
   readonly isActive: boolean;
+  /** Mirrors ProductVariant.imageUrl on the Prisma schema. */
+  readonly imageUrl: string | null;
 }
 
 export interface ProductDto {

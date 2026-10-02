@@ -12,12 +12,13 @@ import { GOOGLE_MAPS_CONFIG, MapMarkerPoint, MarkerCluster } from '../../../core
  *  - expose a smooth `pushDriverUpdate()` API used by the live-tracking view
  */
 @Component({
-  selector: 'google-map',
+  selector: 'app-shop-map',
+  standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [GoogleMap, MapAdvancedMarker, MapInfoWindow, MapInfoWindowContent],
   template: `
     <google-map
-      #mapEl
+      #nativeMap
       height="100%"
       width="100%"
       [center]="center()"
@@ -61,8 +62,8 @@ import { GOOGLE_MAPS_CONFIG, MapMarkerPoint, MarkerCluster } from '../../../core
         </map-info-window>
       }
 
-      @if (destination()) {
-        <map-advanced-marker [position]="destination()!" title="Delivery address" />
+      @if (deliveryDestination(); as dest) {
+        <map-advanced-marker [position]="dest" title="Delivery address" />
       }
 
       @if (driverPosition(); as driver) {
@@ -85,12 +86,12 @@ export class ShopMapComponent implements OnChanges, OnDestroy {
   /** Points of interest (shops). Extended in-line with subtitle for banners. */
   @Input() points: ReadonlyArray<MapMarkerPoint & { subtitle?: string }> = [];
   /** Optional delivery destination pin (customer tracking view). */
-  @Input() set destination(value: google.maps.LatLngLiteral | null) {
-    this._destination.set(value);
-    if (value) this.fitBounds([value, ...this.points.map((p) => ({ lat: p.lat, lng: p.lng }))]);
+  @Input() set deliveryDestination(value: google.maps.LatLngLiteral | null) {
+    this._deliveryDestination.set(value);
+    if (value) this.fitBounds([value, ...this.points.map((pt) => ({ lat: pt.lat, lng: pt.lng }))]);
   }
-  private readonly _destination = signal<google.maps.LatLngLiteral | null>(null);
-  protected destination = this._destination.asReadonly();
+  private readonly _deliveryDestination = signal<google.maps.LatLngLiteral | null>(null);
+  protected readonly deliveryDestination = this._deliveryDestination.asReadonly();
 
   @Output() readonly shopBannerClicked = new EventEmitter<MapMarkerPoint>();
 

@@ -19,6 +19,7 @@ interface DriverJobDto {
 
 @Component({
   selector: 'app-driver-jobs',
+  standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ShopMapComponent],
   template: `
@@ -34,18 +35,18 @@ interface DriverJobDto {
       </header>
 
       <section class="jobs__map">
-        <google-map [points]="mapPoints()" />
+        <app-shop-map [points]="mapPoints()" />
       </section>
 
       <section class="jobs__board">
-        @for (job of jobs(); track job.orderId) {
+        @for (jobRow of jobs(); track jobRow.orderId) {
           <article class="job-card">
             <div>
-              <strong>#{{ job.orderNumber }} · {{ job.shopName }}</strong>
-              <p>To: {{ job.dropoffAddress }} ({{ job.distanceKm.toFixed(1) }} km)</p>
-              <p class="pay">Driver payout: ${{ job.payoutAmount.toFixed(2) }}</p>
+              <strong>#{{ jobRow.orderNumber }} · {{ jobRow.shopName }}</strong>
+              <p>To: {{ jobRow.dropoffAddress }} ({{ jobRow.distanceKm.toFixed(1) }} km)</p>
+              <p class="pay">Driver payout: ${ {{ jobRow.payoutAmount.toFixed(2) }} }</p>
             </div>
-            <button type="button" class="btn btn--accept" (click)="accept(job)">Accept &amp; start tracking</button>
+            <button type="button" class="btn btn--accept" (click)="accept(jobRow)">Accept &amp; start tracking</button>
           </article>
         } @empty {
           <p>No open jobs nearby. Pull to refresh.</p>

@@ -1,6 +1,6 @@
 import { Injectable, NgZone, inject, signal } from '@angular/core';
 import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
-import { filter, firstValueFrom, timeout } from 'rxjs';
+import { filter } from 'rxjs';
 import { ToastService } from '../../shared/services/toast.service';
 
 export type UpdatePromptState = 'idle' | 'pending' | 'installing' | 'installed';
@@ -35,15 +35,21 @@ export class PwaUpdateService {
         .pipe(filter((evt): evt is VersionReadyEvent => evt.type === 'VERSION_READY'))
         .subscribe((evt) => {
           this.zone.run(() => {
-            this.pendingVersionHash.set(evt.latestHash ?? evt.currentHash ?? 'unknown');
+            this.pendingVersionHash.set(evt.latestVersion.hash);
             this.state.set('pending');
           });
         });
 
-      // 2. React to hard-recovery events (e.g. corrupted cache after a bad deploy).
-      this.swUpdate.notification$
-        .pipe(filter((msg) => msg.type === 'UPDATE_AVAILABLE'))
-        .subscribe(() => this.zone.run(() => this.activateAndReload()));
+      // 2. React to hard-recovery events (e.g. corrupted cache after a bad deploy):
+      // if the SW reports an unrecoverable state, force-clean and reload so the
+      // customer is never stuck on a broken offline shell.
+      this.swUpdate.unrecoverable
+        .subscribe(() =>
+          this.zone.run(async () => {
+            await this.swUpdate.activateUpdate();
+            document.location.reload();
+          }),
+        );
 
       // 3. Proactive checks: immediately on boot, then hourly.
       void this.checkForUpdate();
@@ -68,7 +74,9 @@ export class PwaUpdateService {
 
   private async checkForUpdate(): Promise<void> {
     try {
-      await firstValueFrom(this.swUpdate.checkForUpdate().pipe(timeout(15_000)));
+      // checkForUpdate() resolves false when no new manifest is detected —
+      // the versionUpdates stream is what actually announces VERSION_READY.
+      await this.swUpdate.checkForUpdate();
     } catch {
       // Offline or SW endpoint unreachable — silently ignore; freshness retries later.
     }
@@ -76,7 +84,9 @@ export class PwaUpdateService {
 
   private async activateAndReload(): Promise<void> {
     try {
-      await firstValueFrom(this.swUpdate.activateUpdate().pipe(timeout(20_000)));
+      // activateUpdate() resolves once the waiting worker has taken control;
+      // it rejects if installation failed (e.g. partial download).
+      await this.swUpdate.activateUpdate();
     } catch {
       this.toast.error('Update could not be installed. It will retry shortly.');
       this.state.set('idle');

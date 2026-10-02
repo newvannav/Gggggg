@@ -8,6 +8,7 @@ import { PwaUpdateService } from '../../../core/pwa/pwa-update.service';
 @Component({
   selector: 'app-update-notification',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: true,
   imports: [],
   template: `@if (updates.state() === 'pending') {
     <div class="update-snackbar" role="alertdialog" aria-live="assertive">

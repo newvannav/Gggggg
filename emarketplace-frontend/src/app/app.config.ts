@@ -1,4 +1,4 @@
-import { ApplicationConfig, provideZonelessChangeDetection } from '@angular/core';
+import { ApplicationConfig, provideExperimentalZonelessChangeDetection } from '@angular/core';
 import { provideRouter, withComponentInputBinding, withViewTransitions } from '@angular/router';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideServiceWorker } from '@angular/service-worker';
@@ -10,7 +10,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     // Zoneless: the app is signal-driven; WebSockets/geolocation callbacks never
     // need zone.js piggy-backing and this measurably cuts long-tasks on tracking.
-    provideZonelessChangeDetection(),
+    provideExperimentalZonelessChangeDetection(),
     provideRouter(
       [
         {
