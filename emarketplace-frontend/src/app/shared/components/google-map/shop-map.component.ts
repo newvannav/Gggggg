@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, Input, OnChanges, OnDestroy, Output, SimpleChanges, EventEmitter, inject, signal } from '@angular/core';
-import { GoogleMap, MapAdvancedMarker, MapInfoWindow, MapInfoWindowContent } from '@angular/google-maps';
+import { ChangeDetectionStrategy, Component, Input, ViewChild, OnChanges, OnDestroy, Output, SimpleChanges, EventEmitter, inject, signal } from '@angular/core';
+import { GoogleMap, MapAdvancedMarker, MapInfoWindow } from '@angular/google-maps';
 import { GOOGLE_MAPS_CONFIG, MapMarkerPoint, MarkerCluster } from '../../../core/config/google-maps.config';
 
 /**
@@ -15,7 +15,7 @@ import { GOOGLE_MAPS_CONFIG, MapMarkerPoint, MarkerCluster } from '../../../core
   selector: 'app-shop-map',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [GoogleMap, MapAdvancedMarker, MapInfoWindow, MapInfoWindowContent],
+  imports: [GoogleMap, MapAdvancedMarker, MapInfoWindow],
   template: `
     <google-map
       #nativeMap
@@ -24,8 +24,8 @@ import { GOOGLE_MAPS_CONFIG, MapMarkerPoint, MarkerCluster } from '../../../core
       [center]="center()"
       [zoom]="zoom()"
       [options]="mapOptions"
-      (zoomChanged)="onZoomChanged($event)"
-      (mapClick)="openBannerId.set(null)"
+      (mapInitialized)="onMapReady($event)"
+      (mapClick)="closeBanner()"
     >
       @for (cluster of clusters(); track cluster.key) {
         @if (cluster.points.length === 1) {
@@ -33,7 +33,7 @@ import { GOOGLE_MAPS_CONFIG, MapMarkerPoint, MarkerCluster } from '../../../core
             [position]="toLatLng(cluster.points[0])"
             [title]="cluster.points[0].label ?? ''"
             [options]="markerOptions(cluster.points[0])"
-            (mapClick)="selectBanner(cluster.points[0].id)"
+            (mapClick)="selectBanner(cluster.key)"
           />
         } @else {
           <map-advanced-marker
@@ -47,8 +47,7 @@ import { GOOGLE_MAPS_CONFIG, MapMarkerPoint, MarkerCluster } from '../../../core
 
       @if (selectedPoint(); as point) {
         <map-info-window [options]="{ maxWidth: 320 }">
-          <map-info-window-content>
-            <div class="banner">
+                      <div class="banner">
               @if (point.iconUrl) {
                 <img class="banner__logo" [src]="point.iconUrl" [alt]="point.label ?? 'shop'" loading="lazy" />
               }
@@ -58,11 +57,10 @@ import { GOOGLE_MAPS_CONFIG, MapMarkerPoint, MarkerCluster } from '../../../core
               </div>
               <button type="button" class="banner__cta" (click)="shopBannerClicked.emit(point)">Open shop →</button>
             </div>
-          </map-info-window-content>
-        </map-info-window>
+                  </map-info-window>
       }
 
-      @if (deliveryDestination(); as dest) {
+      @if (destination$(); as dest) {
         <map-advanced-marker [position]="dest" title="Delivery address" />
       }
 
@@ -86,12 +84,12 @@ export class ShopMapComponent implements OnChanges, OnDestroy {
   /** Points of interest (shops). Extended in-line with subtitle for banners. */
   @Input() points: ReadonlyArray<MapMarkerPoint & { subtitle?: string }> = [];
   /** Optional delivery destination pin (customer tracking view). */
-  @Input() set deliveryDestination(value: google.maps.LatLngLiteral | null) {
+  @Input() set destination(value: google.maps.LatLngLiteral | null) {
     this._deliveryDestination.set(value);
     if (value) this.fitBounds([value, ...this.points.map((pt) => ({ lat: pt.lat, lng: pt.lng }))]);
   }
   private readonly _deliveryDestination = signal<google.maps.LatLngLiteral | null>(null);
-  protected readonly deliveryDestination = this._deliveryDestination.asReadonly();
+  protected readonly destination$ = this._deliveryDestination.asReadonly();
 
   @Output() readonly shopBannerClicked = new EventEmitter<MapMarkerPoint>();
 
@@ -151,19 +149,32 @@ export class ShopMapComponent implements OnChanges, OnDestroy {
   }
 
   protected selectedPoint(): (MapMarkerPoint & { subtitle?: string }) | null {
-    const id = this.openBannerId();
-    return id === null ? null : this.points.find((p) => p.id === id) ?? null;
+    const key = this.openBannerId();
+    if (key === null) return null;
+    const cluster = this.clusters().find((c) => c.key === key);
+    return cluster && cluster.points.length === 1
+      ? (cluster.points[0] as MapMarkerPoint & { subtitle?: string })
+      : null;
   }
 
-  protected selectBanner(id: string): void {
-    this.openBannerId.set(id);
+  /** Banner identity is the single-point cluster key — stable across re-clustering. */
+  protected selectBanner(key: string): void {
+    this.openBannerId.set(key);
   }
 
-  protected onZoomChanged(zoom: number | null): void {
-    if (zoom !== null) {
-      this.zoom.set(zoom);
-      this.recluster();
-    }
+  protected closeBanner(): void {
+    this.openBannerId.set(null);
+  }
+
+  /** Keep our signal in sync with user gestures by listening on the native Map. */
+  protected onMapReady(map: google.maps.Map): void {
+    map.addListener('zoom_changed', () => {
+      const zoom = map.getZoom();
+      if (typeof zoom === 'number') {
+        this.zoom.set(zoom);
+        this.recluster();
+      }
+    });
   }
 
   protected expandCluster(cluster: MarkerCluster<MapMarkerPoint & { subtitle?: string }>): void {

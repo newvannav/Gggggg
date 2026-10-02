@@ -24,7 +24,7 @@ import { OrderStatus, OrderTrackingSnapshot } from '../../../shared/models/domai
       </header>
 
       <main class="tracking__map">
-        <app-shop-map #map [points]="[]" [deliveryDestination]="destination()" />
+        <app-shop-map #map [points]="[]" [destination]="destination()" />
       </main>
 
       @if (snapshot(); as snap) {

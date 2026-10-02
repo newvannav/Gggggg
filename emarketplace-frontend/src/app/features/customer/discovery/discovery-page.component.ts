@@ -6,6 +6,7 @@ import { ShopMapComponent } from '../../../shared/components/google-map/shop-map
 import { GeolocationService } from '../../../core/geolocation/geolocation.service';
 import { ShopApiService } from './shop-api.service';
 import { NearbyShopMapPoint } from './shop-api.service';
+import { MapMarkerPoint } from '../../../core/config/google-maps.config';
 import { ShopDto } from '../../../shared/models/domain.models';
 
 @Component({
@@ -50,7 +51,7 @@ import { ShopDto } from '../../../shared/models/domain.models';
               <h3>{{ shopCtx.name }}</h3>
               <p>
                 {{ shopCtx.distanceKm?.toFixed(1) ?? '?' }} km ·
-                ~${ {{ shopCtx.estimatedDeliveryFee?.toFixed(2) ?? '--' }} } delivery ·
+                ~\${{ shopCtx.estimatedDeliveryFee?.toFixed(2) ?? '--' }} delivery ·
                 {{ shopCtx.isOpenNow ? 'Open now' : 'Closed' }}
               </p>
             </div>
@@ -84,7 +85,7 @@ import { ShopDto } from '../../../shared/models/domain.models';
   `,
 })
 export class DiscoveryPageComponent implements OnInit {
-  private readonly geo = inject(GeolocationService);
+  protected readonly geo = inject(GeolocationService);
   private readonly api = inject(ShopApiService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -119,8 +120,8 @@ export class DiscoveryPageComponent implements OnInit {
     if (fix) this.loadShops(fix.position);
   }
 
-  protected onBannerClick(point: NearbyShopMapPoint): void {
-    void this.router.navigate(['/customer/shops', point.shop.id]);
+  protected onBannerClick(raw: MapMarkerPoint & Partial<Pick<NearbyShopMapPoint, 'shop'>>): void {
+    if (raw.shop) this.openShop(raw.shop);
   }
 
   protected openShop(shop: ShopDto): void {
