@@ -55,7 +55,7 @@ export class OrdersService {
 
     return this.prisma.$transaction(
       async (tx) => this.placeOrderInTransaction(customer.userId, dto, tx),
-      { isolationLevel: 'Serializable', maxWait: 5_000, timeout: 15_000 },
+      { isolationLevel: 'SERIALIZABLE', maxWait: 5_000, timeout: 15_000 },
     );
   }
 

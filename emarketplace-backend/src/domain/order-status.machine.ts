@@ -1,4 +1,4 @@
-import { OrderStatus } from '../../generated/prisma';
+import { OrderStatus } from '../generated/prisma';
 
 /**
  * Order status machine — single source of truth for allowed transitions.
@@ -30,7 +30,8 @@ const TRANSITIONS: Readonly<Record<OrderStatus, ReadonlySet<OrderStatus>>> = Obj
 });
 
 export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
-  return TRANSITIONS[from].has(to);
+  // noUncheckedIndexedAccess: Record lookups are `Set | undefined` at compile time.
+  return TRANSITIONS[from]?.has(to) ?? false;
 }
 
 export function assertTransition(from: OrderStatus, to: OrderStatus): void {
