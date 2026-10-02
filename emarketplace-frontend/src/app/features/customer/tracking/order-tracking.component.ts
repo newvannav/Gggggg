@@ -9,6 +9,7 @@ import { OrderStatus, OrderTrackingSnapshot } from '../../../shared/models/domai
 
 @Component({
   selector: 'app-order-tracking',
+  standalone: true,
   imports: [ShopMapComponent],
   template: `
     <div class="tracking">
@@ -23,7 +24,7 @@ import { OrderStatus, OrderTrackingSnapshot } from '../../../shared/models/domai
       </header>
 
       <main class="tracking__map">
-        <google-map #map [points]="[]" [destination]="destination()" />
+        <app-shop-map #map [points]="[]" [deliveryDestination]="destination()" />
       </main>
 
       @if (snapshot(); as snap) {

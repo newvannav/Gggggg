@@ -5,11 +5,12 @@ import { FormsModule } from '@angular/forms';
 import { ShopMapComponent } from '../../../shared/components/google-map/shop-map.component';
 import { GeolocationService } from '../../../core/geolocation/geolocation.service';
 import { ShopApiService } from './shop-api.service';
-import { MapMarkerPoint } from '../../../core/config/google-maps.config';
+import { NearbyShopMapPoint } from './shop-api.service';
 import { ShopDto } from '../../../shared/models/domain.models';
 
 @Component({
   selector: 'app-discovery-page',
+  standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ShopMapComponent, FormsModule],
   template: `
@@ -33,27 +34,27 @@ import { ShopDto } from '../../../shared/models/domain.models';
       </header>
 
       <section class="discovery__map">
-        <google-map
+        <app-shop-map
           [points]="mapPoints()"
           (shopBannerClicked)="onBannerClick($event)"
         />
       </section>
 
       <section class="discovery__list" aria-label="Nearby shops">
-        @for (shop of shops(); track shop.id) {
-          <article class="shop-card" (click)="openShop(shop)">
-            @if (shop.logoUrl) {
-              <img [src]="shop.logoUrl" [alt]="shop.name" loading="lazy" />
+        @for (shopCtx of shops(); track shopCtx.id) {
+          <article class="shop-card" (click)="openShop(shopCtx)">
+            @if (shopCtx.logoUrl) {
+              <img [src]="shopCtx.logoUrl" [alt]="shopCtx.name" loading="lazy" />
             }
             <div class="shop-card__body">
-              <h3>{{ shop.name }}</h3>
+              <h3>{{ shopCtx.name }}</h3>
               <p>
-                {{ shop.distanceKm?.toFixed(1) ?? '?' }} km ·
-                ~${{ shop.estimatedDeliveryFee?.toFixed(2) ?? '--' }} delivery ·
-                {{ shop.isOpenNow ? 'Open now' : 'Closed' }}
+                {{ shopCtx.distanceKm?.toFixed(1) ?? '?' }} km ·
+                ~${ {{ shopCtx.estimatedDeliveryFee?.toFixed(2) ?? '--' }} } delivery ·
+                {{ shopCtx.isOpenNow ? 'Open now' : 'Closed' }}
               </p>
             </div>
-            <span class="shop-card__rating">★ {{ shop.ratingAverage ?? 'new' }}</span>
+            <span class="shop-card__rating">★ {{ shopCtx.ratingAverage ?? 'new' }}</span>
           </article>
         } @empty {
           @if (!loading()) {
@@ -118,9 +119,8 @@ export class DiscoveryPageComponent implements OnInit {
     if (fix) this.loadShops(fix.position);
   }
 
-  protected onBannerClick(point: MapMarkerPoint): void {
-    const shopId = Number(point.id.replace('shop-', ''));
-    void this.router.navigate(['/customer/shops', shopId]);
+  protected onBannerClick(point: NearbyShopMapPoint): void {
+    void this.router.navigate(['/customer/shops', point.shop.id]);
   }
 
   protected openShop(shop: ShopDto): void {

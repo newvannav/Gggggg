@@ -5,6 +5,7 @@ import { VendorOrderSummary, VendorOrdersApiService } from '../orders/vendor-ord
 
 @Component({
   selector: 'app-vendor-dashboard',
+  standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DatePipe],
   template: `
@@ -21,25 +22,25 @@ import { VendorOrderSummary, VendorOrdersApiService } from '../orders/vendor-ord
       </header>
 
       <main class="dash__list">
-        @for (order of orders(); track order.id) {
+        @for (orderRow of orders(); track orderRow.id) {
           <article class="order-row">
             <div>
-              <strong>#{{ order.orderNumber }}</strong>
-              <span>{{ order.customerName }} · {{ order.placedAt | date: 'MMM d, HH:mm' }}</span>
+              <strong>#{{ orderRow.orderNumber }}</strong>
+              <span>{{ orderRow.customerName }} · {{ orderRow.placedAt | date: 'MMM d, HH:mm' }}</span>
             </div>
             <div class="money">
-              <span>${{ order.totalAmount.toFixed(2) }}</span>
-              <em>payout ${{ order.netVendorPayout.toFixed(2) }}</em>
+              <span>${ {{ orderRow.totalAmount.toFixed(2) }} }</span>
+              <em>payout ${ {{ orderRow.netVendorPayout.toFixed(2) }} }</em>
             </div>
             <div class="actions">
-              @if (order.status === 'PENDING') {
-                <button type="button" (click)="accept(order)">Accept</button>
-              } @else if (order.status === 'ACCEPTED_BY_SHOP') {
-                <button type="button" (click)="transition(order, 'PREPARING')">Start preparing</button>
-              } @else if (order.status === 'PREPARING') {
-                <button type="button" (click)="transition(order, 'AWAITING_PICKUP')">Ready for pickup</button>
+              @if (orderRow.status === 'PENDING') {
+                <button type="button" (click)="accept(orderRow)">Accept</button>
+              } @else if (orderRow.status === 'ACCEPTED_BY_SHOP') {
+                <button type="button" (click)="transition(orderRow, 'PREPARING')">Start preparing</button>
+              } @else if (orderRow.status === 'PREPARING') {
+                <button type="button" (click)="transition(orderRow, 'AWAITING_PICKUP')">Ready for pickup</button>
               } @else {
-                <span class="badge">{{ label(order.status) }}</span>
+                <span class="badge">{{ label(orderRow.status) }}</span>
               }
             </div>
           </article>

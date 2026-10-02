@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { UpdateNotificationComponent } from './shared/components/update-notification/update-notification.component';
 import { ToastService } from './shared/services/toast.service';
@@ -7,28 +7,31 @@ import { MultiVendorCartError } from './features/customer/cart/cart-store.servic
 
 @Component({
   selector: 'app-root',
+  standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterOutlet, UpdateNotificationComponent],
-  template: `
-    <div class="shell">
-      <nav class="shell__cart" aria-label="Cart summary">
-        <span>🛒 {{ cart.itemCount() }} item(s) — ${{ cart.subtotal().toFixed(2) }}</span>
-        @if (cart.shop(); as shop) {
-          <em>{{ shop.name }}</em>
-        }
-      </nav>
-      <router-outlet />
-      <app-update-notification />
-    </div>
-  `,
-  styles: `
-    .shell { display: flex; flex-direction: column; height: 100dvh; }
-    .shell__cart { display: flex; gap: 12px; align-items: center; padding: 8px 16px; background: #101418; color: #fff; font-size: 13px; }
-    .shell__cart em { opacity: .7; font-style: normal; margin-left: auto; }
-  `,
+  template: [
+    '<div class="shell">',
+    '  <nav class="shell__cart" aria-label="Cart summary">',
+    '    <span>\u{1F6D2} {{ cart.itemCount() }} item(s) \u2014 ${{ cart.subtotal().toFixed(2) }}</span>',
+    '    @if (cartShop(); as shopName) {',
+    '      <em>{{ shopName }}</em>',
+    '    }',
+    '  </nav>',
+    '  <router-outlet />',
+    '  <app-update-notification />',
+    '</div>',
+  ].join('\n'),
+  styles: [
+    '.shell { display: flex; flex-direction: column; height: 100dvh; }',
+    '.shell__cart { display: flex; gap: 12px; align-items: center; padding: 8px 16px; background: #101418; color: #fff; font-size: 13px; }',
+    '.shell__cart em { opacity: .7; font-style: normal; margin-left: auto; }',
+  ],
 })
 export class AppComponent {
   protected readonly cart = inject(CartStore);
+  /** Header pill: which vendor owns the current cart. */
+  protected readonly cartShop = computed(() => this.cart.shop()?.name ?? null);
   private readonly toast = inject(ToastService);
 
   constructor() {

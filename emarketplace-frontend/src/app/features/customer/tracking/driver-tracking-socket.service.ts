@@ -38,19 +38,16 @@ export class DriverTrackingSocketService {
 
     const subject = webSocket<TrackingServerMessage>({
       url,
-      protocol,
-      // Reconnect: 1s → 2s → 4s … capped at 30s, forever while page is open.
-      reconnectInterval: 1_000,
       deserializer: (e) => JSON.parse(e.data as string) as TrackingServerMessage,
       serializer: (msg) => JSON.stringify(msg),
-      openTimeout: 10_000,
     });
 
     // Keep WS frame handling out of the Angular zone; components opt back in
     // via signals + OnPush, avoiding change-detection storms on every packet.
     this.zone.runOutsideAngular(() => {
       const stream$: Observable<TrackingServerMessage> = subject.pipe(
-        retry({ delay: (_err, attempt) => Math.min(1_000 * 2 ** attempt, 30_000) }),
+        // Reconnect: 1s → 2s → 4s … capped at 30s, forever while page is open.
+        retry({ delay: (_err, attempt) => new Promise((resolve) => setTimeout(resolve, Math.min(1_000 * 2 ** attempt, 30_000))) }),
         // Replay the most recent frame to late subscribers (map re-renders).
         shareReplay({ bufferSize: 1, refCount: true }),
       );
