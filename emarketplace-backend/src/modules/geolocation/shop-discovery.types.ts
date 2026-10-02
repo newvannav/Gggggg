@@ -1,4 +1,4 @@
-import { Money } from '../../../domain/money';
+import { Money } from '../../domain/money';
 
 /** Raw row shape returned by the PostGIS/Haversine $queryRaw in ShopDiscoveryRepository. */
 export interface NearbyShopRow {

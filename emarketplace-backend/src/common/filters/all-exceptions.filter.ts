@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { Prisma } from '../../generated/prisma';
-import { DomainError } from './domain-errors';
+import { DomainError } from '../errors/domain-errors';
 
 /**
  * Global exception filter.

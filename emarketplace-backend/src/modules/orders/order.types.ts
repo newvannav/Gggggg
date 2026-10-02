@@ -1,4 +1,4 @@
-import { Money } from '../../../domain/money';
+import { Money } from '../../domain/money';
 
 /** Financial line items frozen onto the Order row at placement time. */
 export interface OrderFinancialSnapshot {

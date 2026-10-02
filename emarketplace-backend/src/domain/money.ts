@@ -21,7 +21,7 @@ export class Money {
   /** Parse from Prisma Decimal | number | string. Numbers are routed via String() to avoid FP artifacts. */
   static from(input: { toString(): string } | string | number): Money {
     const d = new Decimal(typeof input === 'number' ? String(input) : input.toString());
-    if (d.isNaN() || d.isInfinity()) {
+    if (d.isNaN() || !d.isFinite()) {
       throw new TypeError(`Invalid monetary value: ${String(input)}`);
     }
     return new Money(d);

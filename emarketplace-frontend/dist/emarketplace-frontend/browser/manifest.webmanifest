@@ -1,0 +1,16 @@
+{
+  "name": "E-Marketplace",
+  "short_name": "EMarket",
+  "description": "Multi-vendor location-based marketplace with real-time delivery tracking.",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#101418",
+  "theme_color": "#101418",
+  "categories": ["shopping", "food", "navigation"],
+  "icons": [
+    { "src": "/assets/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/assets/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
