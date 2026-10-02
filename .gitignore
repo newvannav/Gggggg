@@ -1,2 +1,2 @@
-# Angular build cache
-.angular/
+# Build artifacts
+dist/

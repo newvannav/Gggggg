@@ -46,6 +46,7 @@ export class ShopApiService {
   /** Maps wire ShopDto → <google-map> marker points with banner subtitles. */
   public toMapPoints(shops: readonly ShopDto[]): readonly NearbyShopMapPoint[] {
     return shops.map((s) => ({
+      id: String(s.id),
       shop: s,
       lat: s.latitude,
       lng: s.longitude,

@@ -11,7 +11,8 @@ export const GOOGLE_MAPS_CONFIG = new InjectionToken<GoogleMapsConfig>('GOOGLE_M
 
 /** Minimal shape the <google-map> wrapper consumes for any point of interest. */
 export interface MapMarkerPoint {
-  readonly id: string;
+  /** Optional stable identity (used for banner de-duplication). */
+  readonly id?: string;
   readonly lat: number;
   readonly lng: number;
   readonly label?: string;

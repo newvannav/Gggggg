@@ -29,8 +29,8 @@ import { VendorOrderSummary, VendorOrdersApiService } from '../orders/vendor-ord
               <span>{{ orderRow.customerName }} · {{ orderRow.placedAt | date: 'MMM d, HH:mm' }}</span>
             </div>
             <div class="money">
-              <span>${ {{ orderRow.totalAmount.toFixed(2) }} }</span>
-              <em>payout ${ {{ orderRow.netVendorPayout.toFixed(2) }} }</em>
+              <span>\${{ orderRow.totalAmount.toFixed(2) }}</span>
+              <em>payout \${{ orderRow.netVendorPayout.toFixed(2) }}</em>
             </div>
             <div class="actions">
               @if (orderRow.status === 'PENDING') {

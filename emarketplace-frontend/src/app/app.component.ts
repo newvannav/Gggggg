@@ -10,18 +10,18 @@ import { MultiVendorCartError } from './features/customer/cart/cart-store.servic
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterOutlet, UpdateNotificationComponent],
-  template: [
-    '<div class="shell">',
-    '  <nav class="shell__cart" aria-label="Cart summary">',
-    '    <span>\u{1F6D2} {{ cart.itemCount() }} item(s) \u2014 ${{ cart.subtotal().toFixed(2) }}</span>',
-    '    @if (cartShop(); as shopName) {',
-    '      <em>{{ shopName }}</em>',
-    '    }',
-    '  </nav>',
-    '  <router-outlet />',
-    '  <app-update-notification />',
-    '</div>',
-  ].join('\n'),
+  template: `
+    <div class="shell">
+      <nav class="shell__cart" aria-label="Cart summary">
+        <span>🛒 {{ cart.itemCount() }} item(s) — \${{ cart.subtotal().toFixed(2) }}</span>
+        @if (cartShop(); as shopName) {
+          <em>{{ shopName }}</em>
+        }
+      </nav>
+      <router-outlet />
+      <app-update-notification />
+    </div>
+  `,
   styles: [
     '.shell { display: flex; flex-direction: column; height: 100dvh; }',
     '.shell__cart { display: flex; gap: 12px; align-items: center; padding: 8px 16px; background: #101418; color: #fff; font-size: 13px; }',
