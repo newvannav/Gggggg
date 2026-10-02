@@ -1,0 +1,464 @@
+generator client {
+  provider = "prisma-client" // v7+ generator (was prisma-client-js)
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  // enable in migration: postgis, pg_trgm, citext extensions
+}
+
+enum UserRole {
+  CUSTOMER
+  VENDOR
+  DRIVER
+  ADMIN
+
+  @@map("user_role")
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED_BY_SHOP
+  PREPARING
+  AWAITING_PICKUP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+
+  @@map("order_status")
+}
+
+enum PaymentStatus {
+  UNPAID
+  AUTHORIZED
+  PAID
+  PARTIALLY_REFUNDED
+  REFUNDED
+  FAILED
+  CANCELLED
+
+  @@map("payment_status")
+}
+
+enum PaymentProvider {          // NEW — was open string
+  STRIPE
+  ADYEN
+  PAYPAL
+  CASH
+
+  @@map("payment_provider")
+}
+
+enum OnboardingStatus {         // NEW — was open string
+  NOT_STARTED
+  IN_PROGRESS
+  PENDING_REVIEW
+  COMPLETE
+  REJECTED
+
+  @@map("onboarding_status")
+}
+
+enum PayoutSchedule {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+
+  @@map("payout_schedule")
+}
+
+enum ReviewTarget {
+  SHOP
+  DRIVER
+
+  @@map("review_target")
+}
+
+model User {
+  id              Int        @id @default(autoincrement())
+  email           String     @db.VarChar(255) // use citext via extension (case-insensitive unique)
+  emailVerifiedAt DateTime?
+  passwordHash    String?    @db.VarChar(255)
+  phone           String?    @db.VarChar(32)
+  firstName       String     @db.VarChar(120)
+  lastName        String     @db.VarChar(120)
+  displayName     String?    @db.VarChar(120)
+  avatarUrl       String?    @db.VarChar(1024) // URLs don't need Text; bound them
+  role            UserRole   @default(CUSTOMER)
+  isActive        Boolean    @default(true)
+  lastLoginAt     DateTime?
+  deletedAt       DateTime?  // NEW — soft delete replaces destructive cascade
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  shop            Shop?      @relation("UserShop")
+  addresses       Address[]  @relation("UserAddresses")
+  customerOrders  Order[]    @relation("CustomerOrders")
+  driverOrders    Order[]    @relation("DriverOrders")
+  customerReviews Review[]   @relation("CustomerReviews")
+  driverReviews   Review[]   @relation("DriverReviews")
+  timelineEvents  OrderTimeline[] @relation("OrderTimelineChangedBy")
+
+  @@unique([email], name: "user_email_key")   // enforce lower(email) via citext/functional idx
+  @@unique([phone], name: "user_phone_key")
+  @@index([role, isActive], name: "user_role_is_active_idx")
+  @@index([deletedAt], name: "user_deleted_at_idx")
+  @@map("users")
+}
+
+model Shop {
+  id                            Int       @id @default(autoincrement())
+  userId                        Int
+  user                          User      @relation("UserShop", fields: [userId], references: [id], onDelete: Restrict)
+  name                          String    @db.VarChar(255)
+  slug                          String    @db.VarChar(255)
+  description                   String?   @db.Text
+  shortDescription              String?   @db.VarChar(500)
+  logoUrl                       String?   @db.VarChar(1024)
+  coverImageUrl                 String?   @db.VarChar(1024)
+  galleryUrls                   String[]
+  latitude                      Float
+  longitude                     Float
+  timezone                      String    @default("UTC") @db.VarChar(64)
+  currencyCode                  String    @default("USD") @db.Char(3)
+  minimumOrderAmount            Decimal   @default(0) @db.Decimal(12, 2)
+  averagePreparationTimeMinutes Int?
+  ratingAverage                 Decimal?  @db.Decimal(3, 2)
+  ratingCount                   Int       @default(0)
+  isApproved                    Boolean   @default(false)
+  isActive                      Boolean   @default(true)
+  deletedAt                     DateTime?
+  createdAt                     DateTime  @default(now())
+  updatedAt                     DateTime  @updatedAt
+
+  operatingHours ShopOperatingHours[]
+  products       Product[]
+  addresses      Address[]            @relation("ShopAddresses")
+  orders         Order[]              @relation("ShopOrders")
+  payoutProfile  VendorPayoutProfile? @relation("ShopPayoutProfile")
+  reviews        Review[]             @relation("ShopReviews")
+
+  @@unique([userId], name: "shop_user_id_key")
+  @@unique([slug], name: "shop_slug_key")
+  @@index([isActive, isApproved], name: "shop_is_active_is_approved_idx")
+  @@map("shops")
+}
+
+model ShopOperatingHours {
+  id        Int      @id @default(autoincrement())
+  shopId    Int
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  dayOfWeek Int      @default(0) // CHECK (day_of_week BETWEEN 0 AND 6) in migration
+  opensAt   DateTime @db.Time
+  closesAt  DateTime @db.Time
+  isClosed  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shopId, dayOfWeek], name: "shop_operating_hours_shop_id_day_of_week_key")
+  @@map("shop_operating_hours")
+}
+
+model Category {
+  id          Int        @id @default(autoincrement())
+  name        String     @db.VarChar(160)
+  slug        String     @db.VarChar(180)
+  description String?    @db.Text
+  imageUrl    String?    @db.VarChar(1024)
+  isActive    Boolean    @default(true)
+  parentId    Int?
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[] @relation("CategoryHierarchy")
+  products    Product[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([slug], name: "category_slug_key")
+  @@index([parentId], name: "category_parent_id_idx")
+  @@index([isActive], name: "category_is_active_idx")
+  @@map("categories")
+}
+
+model Product {
+  id                Int       @id @default(autoincrement())
+  shopId            Int
+  shop              Shop      @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  categoryId        Int?
+  category          Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  name              String    @db.VarChar(255)
+  slug              String    @db.VarChar(255)
+  description       String?   @db.Text
+  shortDescription  String?   @db.VarChar(500)
+  basePrice         Decimal   @db.Decimal(12, 2)
+  compareAtPrice    Decimal?  @db.Decimal(12, 2)
+  currencyCode      String    @default("USD") @db.Char(3)
+  imageUrl          String?   @db.VarChar(1024)
+  galleryUrls       String[]
+  tags              String[]
+  isActive          Boolean   @default(true)
+  isFeatured        Boolean   @default(false)
+  trackInventory    Boolean   @default(true)
+  lowStockThreshold Int       @default(5)
+  averageRating     Decimal?  @db.Decimal(3, 2)
+  ratingCount       Int       @default(0)
+  deletedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  variants   ProductVariant[]
+  orderItems OrderItem[]
+
+  @@unique([shopId, slug], name: "product_shop_id_slug_key")
+  @@index([shopId, isActive], name: "product_shop_id_is_active_idx")
+  @@index([categoryId], name: "product_category_id_idx")
+  @@map("products")
+}
+
+model ProductVariant {
+  id             BigInt   @id @default(autoincrement())
+  productId      Int
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name           String   @db.VarChar(255)
+  sku            String   @db.VarChar(128)
+  barcode        String?  @db.VarChar(128)
+  priceOffset    Decimal  @default(0) @db.Decimal(12, 2)
+  stockQuantity  Int      @default(0)
+  allowBackorder Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  imageUrl       String?  @db.VarChar(1024)
+  weightGrams    Int?
+  dimensionsJson Json?    @db.JsonB
+  attributesJson Json?    @db.JsonB
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  orderItems OrderItem[]
+
+  @@unique([productId, sku], name: "product_variant_product_id_sku_key")
+  @@index([productId, isActive], name: "product_variant_product_id_is_active_idx")
+  @@index([barcode], name: "product_variant_barcode_idx")
+  @@map("product_variants")
+}
+
+model Address {
+  id             Int      @id @default(autoincrement())
+  userId         Int?
+  user           User?    @relation("UserAddresses", fields: [userId], references: [id], onDelete: Cascade)
+  shopId         Int?
+  shop           Shop?    @relation("ShopAddresses", fields: [shopId], references: [id], onDelete: Cascade)
+  label          String?  @db.VarChar(120)
+  recipientName  String   @db.VarChar(255)
+  recipientPhone String?  @db.VarChar(32)
+  line1          String   @db.VarChar(255)
+  line2          String?  @db.VarChar(255)
+  district       String?  @db.VarChar(160)
+  city           String   @db.VarChar(160)
+  state          String?  @db.VarChar(160)
+  postalCode     String   @db.VarChar(32)
+  countryCode    String   @db.Char(2)
+  latitude       Float
+  longitude      Float
+  accuracyMeters Int?
+  isDefault      Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  orders Order[] @relation("OrderDeliveryAddresses")
+
+  @@index([userId], name: "address_user_id_idx")
+  @@index([shopId], name: "address_shop_id_idx")
+  @@index([city, countryCode], name: "address_city_country_code_idx")
+  @@index([userId, isDefault], name: "address_user_id_is_default_idx")
+  @@map("addresses")
+}
+
+model Order {
+  id                   BigInt        @id @default(autoincrement())
+  orderNumber          String        @db.VarChar(64)
+  customerId           Int
+  customer             User          @relation("CustomerOrders", fields: [customerId], references: [id], onDelete: Restrict)
+  shopId               Int
+  shop                 Shop          @relation("ShopOrders", fields: [shopId], references: [id], onDelete: Restrict)
+  deliveryAddressId    Int?
+  deliveryAddress      Address?      @relation("OrderDeliveryAddresses", fields: [deliveryAddressId], references: [id], onDelete: SetNull)
+  driverId             Int?
+  driver               User?         @relation("DriverOrders", fields: [driverId], references: [id], onDelete: Restrict)
+
+  status               OrderStatus   @default(PENDING)
+  paymentStatus        PaymentStatus @default(UNPAID)
+  paymentProvider      PaymentProvider?
+  paymentReference     String?       @db.VarChar(255)
+  paymentCapturedAt    DateTime?
+
+  currencyCode         String        @default("USD") @db.Char(3)
+  subtotal             Decimal       @default(0) @db.Decimal(12, 2)
+  deliveryFee          Decimal       @default(0) @db.Decimal(12, 2)
+  platformServiceFee   Decimal       @default(0) @db.Decimal(12, 2)
+  platformCommissionRate Decimal?    @db.Decimal(7, 4)
+  taxes                Decimal       @default(0) @db.Decimal(12, 2)
+  discountTotal        Decimal       @default(0) @db.Decimal(12, 2)
+  tipAmount            Decimal       @default(0) @db.Decimal(12, 2)
+  totalAmount          Decimal       @default(0) @db.Decimal(12, 2)
+  refundedAmount       Decimal       @default(0) @db.Decimal(12, 2)
+  netVendorPayout      Decimal       @default(0) @db.Decimal(12, 2)
+
+  deliveryRecipientName  String?  @db.VarChar(255)
+  deliveryRecipientPhone String?  @db.VarChar(32)
+  deliveryLine1          String?  @db.VarChar(255)
+  deliveryLine2          String?  @db.VarChar(255)
+  deliveryCity           String?  @db.VarChar(160)
+  deliveryState          String?  @db.VarChar(160)
+  deliveryPostalCode     String?  @db.VarChar(32)
+  deliveryCountryCode    String?  @db.Char(2)
+  deliveryLatitude       Float?
+  deliveryLongitude      Float?
+
+  driverLatitude        Float?
+  driverLongitude       Float?
+  driverLocationUpdatedAt DateTime?
+  driverEtaMinutes      Int?
+
+  notes               String?   @db.Text
+  cancellationReason  String?   @db.Text
+  placedAt            DateTime  @default(now())
+  acceptedAt          DateTime?
+  preparingAt         DateTime?
+  awaitingPickupAt    DateTime?
+  outForDeliveryAt    DateTime?
+  deliveredAt         DateTime?
+  cancelledAt         DateTime?
+  estimatedDeliveryAt DateTime?
+  scheduledFor        DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  items    OrderItem[]
+  timeline OrderTimeline[]
+  reviews  Review[]
+
+  @@unique([orderNumber], name: "order_order_number_key")
+  @@index([customerId, createdAt], name: "order_customer_id_created_at_idx")
+  @@index([shopId, status], name: "order_shop_id_status_idx")
+  @@index([shopId, createdAt], name: "order_shop_id_created_at_idx")
+  @@index([driverId, status], name: "order_driver_id_status_idx")
+  @@index([status, createdAt], name: "order_status_created_at_idx")
+  @@index([deliveryAddressId], name: "order_delivery_address_id_idx")
+  @@index([paymentStatus], name: "order_payment_status_idx")
+  @@index([paymentProvider, paymentReference], name: "order_payment_provider_payment_reference_idx")
+  @@map("orders")
+}
+
+model OrderItem {
+  id                  BigInt           @id @default(autoincrement())
+  orderId             BigInt
+  order               Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId           Int?
+  product             Product?         @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variantId           BigInt?
+  variant             ProductVariant?  @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  quantity              Int     // CHECK (quantity > 0)
+  currencyCode          String  @default("USD") @db.Char(3)
+  unitPrice             Decimal @db.Decimal(12, 2)
+  totalPrice            Decimal @db.Decimal(12, 2)
+  taxRate               Decimal? @db.Decimal(7, 4)
+  taxAmount             Decimal  @default(0) @db.Decimal(12, 2)
+  discountAmount        Decimal  @default(0) @db.Decimal(12, 2)
+
+  productNameSnapshot   String   @db.VarChar(255)
+  variantNameSnapshot   String?  @db.VarChar(255)
+  skuSnapshot           String?  @db.VarChar(128)
+  productImageSnapshot  String?  @db.VarChar(1024)
+  configurationSnapshot Json?    @db.JsonB
+  modifiersSnapshot     Json?    @db.JsonB
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([orderId], name: "order_item_order_id_idx")
+  @@index([productId], name: "order_item_product_id_idx")
+  @@index([variantId], name: "order_item_variant_id_idx")
+  @@map("order_items")
+}
+
+model OrderTimeline {
+  id             BigInt      @id @default(autoincrement())
+  orderId        BigInt
+  order          Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status         OrderStatus
+  previousStatus OrderStatus?
+  note           String?     @db.Text
+  changedById    Int?
+  changedBy      User?       @relation("OrderTimelineChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
+  occurredAt     DateTime    @default(now())
+  createdAt      DateTime    @default(now())
+
+  @@index([orderId, occurredAt], name: "order_timeline_order_id_occurred_at_idx")
+  @@index([changedById], name: "order_timeline_changed_by_id_idx")
+  @@map("order_timelines")
+}
+
+model VendorPayoutProfile {
+  id                        Int              @id @default(autoincrement())
+  shopId                    Int
+  shop                      Shop             @relation("ShopPayoutProfile", fields: [shopId], references: [id], onDelete: Restrict)
+  stripeAccountId           String?          @db.VarChar(255)
+  stripeCurrency            String?          @db.Char(3)
+  chargesEnabled            Boolean          @default(false)
+  payoutsEnabled            Boolean          @default(false)
+  detailsSubmitted          Boolean          @default(false)
+  hasAcceptedTerms          Boolean          @default(false)
+  splitPaymentsEnabled      Boolean          @default(false)
+  lazyPayoutsEnabled        Boolean          @default(false)
+  payoutStatementDescriptor String?          @db.VarChar(22)
+  onboardingCompletedAt     DateTime?
+  onboardingStatus          OnboardingStatus @default(NOT_STARTED)
+  commissionRate            Decimal          @default(0.1500) @db.Decimal(7, 4)
+  fixedCommissionPerOrder   Decimal          @default(0) @db.Decimal(12, 2)
+  minimumPayoutAmount       Decimal          @default(0) @db.Decimal(12, 2)
+  payoutSchedule            PayoutSchedule   @default(WEEKLY)
+  nextPayoutAt              DateTime?
+  lastPayoutAt              DateTime?
+  isActive                  Boolean          @default(true)
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
+
+  @@unique([shopId], name: "vendor_payout_profile_shop_id_key")
+  @@unique([stripeAccountId], name: "vendor_payout_profile_stripe_account_id_key")
+  @@index([isActive, payoutSchedule], name: "vendor_payout_profile_is_active_payout_schedule_idx")
+  @@map("vendor_payout_profiles")
+}
+
+model Review {
+  id          BigInt       @id @default(autoincrement())
+  customerId  Int
+  customer    User         @relation("CustomerReviews", fields: [customerId], references: [id], onDelete: Restrict)
+  orderId     BigInt
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  shopId      Int?
+  shop        Shop?        @relation("ShopReviews", fields: [shopId], references: [id], onDelete: Cascade)
+  driverId    Int?
+  driver      User?        @relation("DriverReviews", fields: [driverId], references: [id], onDelete: Cascade)
+  targetType  ReviewTarget
+
+  rating      Int          @default(5) @db.SmallInt
+  comment     String?      @db.Text
+  mediaUrls   String[]
+  response    String?      @db.Text
+  respondedAt DateTime?
+  isVisible   Boolean      @default(true)
+  isFlagged   Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([customerId, orderId, targetType], name: "review_customer_id_order_id_target_type_key")
+  @@index([orderId], name: "review_order_id_idx")
+  @@index([shopId, isVisible], name: "review_shop_id_is_visible_idx")
+  @@index([driverId, isVisible], name: "review_driver_id_is_visible_idx")
+  @@index([targetType, rating], name: "review_target_type_rating_idx")
+  @@map("reviews")
+}
