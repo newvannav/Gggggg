@@ -1,0 +1,89 @@
+{
+  "$schema": "./node_modules/@angular/service-worker/config/schema.json",
+  "index": "/index.html",
+  "assetGroups": [
+    {
+      "name": "app",
+      "installMode": "prefetch",
+      "updateMode": "prefetch",
+      "resources": {
+        "files": [
+          "/favicon.ico",
+          "/index.csr.html",
+          "/index.html",
+          "/manifest.webmanifest",
+          "/*.css",
+          "/*.js",
+          "/chunk-*.js",
+          "/main-*.js",
+          "/polyfills-*.js",
+          "/runtime-*.js"
+        ]
+      }
+    },
+    {
+      "name": "assets",
+      "installMode": "lazy",
+      "updateMode": "prefetch",
+      "resources": {
+        "files": [
+          "/assets/**",
+          "/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf|woff|woff2)"
+        ]
+      }
+    }
+  ],
+  "dataGroups": [
+    {
+      "name": "pricing-inventory-freshness",
+      "urls": [
+        "/v1/products/**/price",
+        "/v1/products/**/stock",
+        "/v1/shops/*/availability",
+        "/v1/cart/validate",
+        "/v1/orders/*/tracking",
+        "/v1/geolocation/nearby**"
+      ],
+      "cacheConfig": {
+        "strategy": "freshness",
+        "maxSize": 50,
+        "maxAge": "60s",
+        "timeout": "5s",
+        "cacheGrowth": "optimistic"
+      }
+    },
+    {
+      "name": "shop-profiles-performance",
+      "urls": [
+        "/v1/shops",
+        "/v1/shops/[0-9]+",
+        "/v1/shops/[0-9]+/profile",
+        "/v1/shops/[0-9]+/operating-hours",
+        "/v1/categories/**",
+        "/v1/products/[0-9]+$",
+        "/v1/products/[0-9]+/details"
+      ],
+      "cacheConfig": {
+        "strategy": "performance",
+        "prefetchEnabled": true,
+        "maxSize": 200,
+        "maxAge": "6h",
+        "cacheGrowth": "conservative"
+      }
+    },
+    {
+      "name": "user-session",
+      "urls": [
+        "/v1/auth/me",
+        "/v1/addresses/**",
+        "/v1/cart"
+      ],
+      "cacheConfig": {
+        "strategy": "freshness",
+        "maxSize": 30,
+        "maxAge": "5m",
+        "timeout": "8s"
+      }
+    }
+  ]
+}
