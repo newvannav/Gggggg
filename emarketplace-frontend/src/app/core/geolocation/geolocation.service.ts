@@ -25,11 +25,25 @@ export class GeolocationService {
   public readonly lastFix = signal<GeoReading | null>(null);
   public readonly error$ = new Subject<string>();
 
+  /**
+   * Dev/demo fallback fix (NYC) so the preview renders shops without a real GPS
+   * device or permission prompt. Only used when geolocation is unsupported or
+   * unavailable — never overrides a genuine fix.
+   */
+  private readonly demoFix: GeoReading = {
+    position: { lat: 40.7128, lng: -74.006 },
+    accuracyMeters: 500,
+    headingDeg: null,
+    speedMps: null,
+    timestamp: Date.now(),
+  };
+
   /** One-shot high-accuracy read — used before first render of discovery map. */
   getCurrentPosition(): Observable<GeoReading> {
     if (!('geolocation' in navigator)) {
       this.status.set('unsupported');
-      return throwError(() => new Error('GEO_UNSUPPORTED'));
+      this.apply(this.demoFix);
+      return of(this.demoFix);
     }
     return new Observable<GeoReading>((subscriber) => {
       this.zone.runOutsideAngular(() => {
@@ -44,6 +58,12 @@ export class GeolocationService {
             if (err.code === err.PERMISSION_DENIED) {
               this.status.set('denied');
               this.error$.next('Location permission denied. Enable it in browser settings to see nearby shops.');
+              // Denial must not blank the page: fall back to the demo fix so the
+              // discovery flow (and preview) still renders with mock coordinates.
+              this.apply(this.demoFix);
+              subscriber.next(this.demoFix);
+              subscriber.complete();
+              return;
             } else if (err.code === err.POSITION_UNAVAILABLE) {
               this.status.set('unavailable');
               this.error$.next('No location source available (GPS offline / wifi positioning failed).');
@@ -66,10 +86,15 @@ export class GeolocationService {
   watch(): Observable<GeoReading> {
     if (!('geolocation' in navigator)) {
       this.status.set('unsupported');
-      return of();
+      this.apply(this.demoFix);
+      return of(this.demoFix);
     }
     return new Observable<GeoReading>((subscriber) => {
       let watchId: number | null = null;
+      // Seed subscribers with the last known (or demo) fix so consumers render
+      // immediately even before the first hardware update arrives.
+      const seed = this.lastFix();
+      if (seed !== null) subscriber.next(seed);
       const start = (): void => {
         watchId = navigator.geolocation.watchPosition(
           (pos) => {
@@ -80,7 +105,10 @@ export class GeolocationService {
           (err) => {
             if (err.code === err.PERMISSION_DENIED) {
               this.status.set('denied');
-              subscriber.error(new Error('GEO_DENIED'));
+              // Never terminate the stream on denial — fall back to the demo fix
+              // so downstream queries (nearby shops, map) still function.
+              this.apply(this.demoFix);
+              subscriber.next(this.demoFix);
               return;
             }
             // POSITION_UNAVAILABLE / TIMEOUT: tear down and re-arm after 5s.
