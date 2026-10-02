@@ -17,16 +17,17 @@ import { GOOGLE_MAPS_CONFIG, MapMarkerPoint, MarkerCluster } from '../../../core
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [GoogleMap, MapAdvancedMarker, MapInfoWindow],
   template: `
-    <google-map
-      #nativeMap
-      height="100%"
-      width="100%"
-      [center]="center()"
-      [zoom]="zoom()"
-      [options]="mapOptions"
-      (mapInitialized)="onMapReady($event)"
-      (mapClick)="closeBanner()"
-    >
+    @if (hasRealApiKey()) {
+      <google-map
+        #nativeMap
+        height="100%"
+        width="100%"
+        [center]="center()"
+        [zoom]="zoom()"
+        [options]="mapOptions"
+        (mapInitialized)="onMapReady($event)"
+        (mapClick)="closeBanner()"
+      >
       @for (cluster of clusters(); track cluster.key) {
         @if (cluster.points.length === 1) {
           <map-advanced-marker
@@ -67,10 +68,25 @@ import { GOOGLE_MAPS_CONFIG, MapMarkerPoint, MarkerCluster } from '../../../core
       @if (driverPosition(); as driver) {
         <map-advanced-marker [position]="driver" [title]="'Your driver'" [options]="driverMarkerOptions" />
       }
-    </google-map>
+      </google-map>
+    } @else {
+      <!-- Graceful preview fallback: no valid Google Maps API key configured. -->
+      <div class="map-fallback" role="img" aria-label="Map preview unavailable">
+        <strong>Google Maps not configured</strong>
+        <span>Add a billing-enabled API key to <code>src/environments/environment.ts</code> to render the live map.</span>
+        <ul>
+          @for (cluster of clusters(); track cluster.key) {
+            <li>{{ cluster.points[0]?.label ?? cluster.count + ' shops' }}{{ cluster.points.length > 1 ? ' (×' + cluster.count + ')' : '' }}</li>
+          }
+        </ul>
+      </div>
+    }
   `,
   styles: `
     :host { display: block; height: 100%; }
+    .map-fallback { display: flex; flex-direction: column; gap: 8px; align-items: center; justify-content: center; height: 100%; background: #eef1f5; color: #37404a; font-size: 14px; text-align: center; padding: 16px; }
+    .map-fallback ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+    .map-fallback li { background: #fff; border: 1px solid #d7dde4; border-radius: 8px; padding: 4px 10px; }
     .banner { display: flex; align-items: center; gap: 10px; padding: 4px; }
     .banner__logo { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; }
     .banner__meta { display: flex; flex-direction: column; min-width: 120px; }
@@ -95,6 +111,12 @@ export class ShopMapComponent implements OnChanges, OnDestroy {
 
   protected readonly center = signal<google.maps.LatLngLiteral>({ lat: 40.7128, lng: -74.006 });
   protected readonly zoom = signal(13);
+
+  /** True only when a real (non-placeholder) Google Maps API key is configured. */
+  protected hasRealApiKey(): boolean {
+    const key = this.mapsConfig.apiKey ?? '';
+    return key.length > 0 && !key.startsWith('REPLACE_');
+  }
   protected readonly openBannerId = signal<string | null>(null);
   protected readonly driverPosition = signal<google.maps.LatLngLiteral | null>(null);
 
@@ -106,7 +128,9 @@ export class ShopMapComponent implements OnChanges, OnDestroy {
     zoomControl: true,
     clickableIcons: false,
     gestureHandling: 'greedy',
-    mapId: this.mapsConfig.mapsId,
+    // mapId requires a valid Cloud Console Map ID + billing-enabled API key;
+    // omit it for local preview so the canvas still renders without crashing.
+    mapId: this.hasRealApiKey() ? this.mapsConfig.mapsId : undefined,
   };
 
   protected readonly driverMarkerOptions: google.maps.marker.AdvancedMarkerElementOptions = {

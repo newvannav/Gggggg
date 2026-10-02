@@ -1,6 +1,6 @@
-# Dependencies
-node_modules/
+# Angular build artifacts
+.angular/
+dist/
 
-# Environment
-.env
-.env.local
+# Node modules (common in Angular projects)
+node_modules/
