@@ -1,21 +1,22 @@
 {
   "name": "emarketplace-backend",
   "version": "1.0.0",
-  "description": "Location-based multi-vendor e-marketplace — core domain backend (NestJS + Prisma v7 + PostgreSQL/PostGIS)",
+  "description": "Location-based multi-vendor e-marketplace \u2014 core domain backend (NestJS + Prisma v7 + PostgreSQL/PostGIS)",
   "license": "UNLICENSED",
   "private": true,
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "build": "nest build",
+    "build": "nest build && node scripts/link-runtime-client.js",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "lint": "eslint \"src/**/*.ts\"",
-    "test": "jest"
+    "test": "jest",
+    "build:docker": "npm ci --omit=dev=false && npm run build"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",
@@ -25,11 +26,12 @@
     "@nestjs/platform-express": "^10.4.15",
     "@nestjs/platform-socket.io": "^10.4.15",
     "@nestjs/websockets": "^10.4.15",
+    "@prisma/client": "^6.2.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "decimal.js": "^10.4.3",
+    "pg": "^8.23.1",
     "prisma": "^6.2.1",
-    "@prisma/client": "^6.2.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.1"

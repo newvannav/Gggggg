@@ -1,6 +1,6 @@
+# Build artifacts
+dist/
+.angular/cache/
+
 # Dependencies
 node_modules/
-
-# Environment
-.env
-.env.local

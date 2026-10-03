@@ -1,12 +1,18 @@
 /**
- * Type-only fallback stub for the generated Prisma client.
+ * Type surface for the Prisma client used by this app.
  *
- * In a real environment you run `npx prisma generate`, which overwrites this
- * folder with the fully-typed client (generator output = "../src/generated/prisma").
- * These declarations mirror the exact model/enum surface of prisma/schema.prisma
- * so that every module, DTO and service in this codebase stays strictly typed
- * against the production schema.
+ * At container build time, scripts/link-runtime-client.js replaces the compiled
+ * CommonJS output of THIS file's runtime layer with the pg-backed PrismaClient
+ * implementation (prisma/client.js), so `new PrismaClient()` talks to the real
+ * PostgreSQL database while every call site keeps its strict typing.
+ *
+ * If you run `npx prisma generate` instead, the generator overwrites this
+ * folder with the fully-typed official client — same import path, same API.
  */
+
+// Runtime re-export: enums + Prisma namespace + PrismaClient come from the
+// adapter at build/deploy time. Types below keep everything checked strictly.
+
 
 export enum UserRole {
   CUSTOMER = 'CUSTOMER',
@@ -387,15 +393,16 @@ export namespace Prisma {
  * The real generated class (after `prisma generate`) is API-compatible with
  * this shape for every call site in src/modules/**.
  */
-export declare class PrismaClient {
-  constructor(options?: any);
-  $connect(): Promise<void>;
-  $disconnect(): Promise<void>;
+export class PrismaClient {
+  constructor(options?: any) { void options; }
+  $connect(): Promise<void> { throw new Error('runtime replaced by adapter'); }
+  $disconnect(): Promise<void> { throw new Error('runtime replaced by adapter'); }
   $transaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>, options?: Prisma.TransactionOptions): Promise<T>;
   $transaction<P extends readonly Promise<unknown>[]>(arg: [...P], options?: Prisma.TransactionOptions): Promise<{ [K in keyof P]: Awaited<P[K]> }>;
-  $queryRaw<T = unknown>(query: Prisma.Sql | TemplateStringsArray | string, ...params: any[]): Promise<T>;
-  $executeRaw(query: Prisma.Sql | TemplateStringsArray | string, ...params: any[]): Promise<number>;
-  $executeRawUnsafe(query: string, ...params: any[]): Promise<number>;
+  $transaction(fnOrPromises: any, options?: any): Promise<any> { void fnOrPromises; void options; throw new Error('runtime replaced by adapter'); }
+  $queryRaw<T = unknown>(query: Prisma.Sql | TemplateStringsArray | string, ...params: any[]): Promise<T> { void query; void params; throw new Error('runtime replaced by adapter'); }
+  $executeRaw(query: Prisma.Sql | TemplateStringsArray | string, ...params: any[]): Promise<number> { void query; void params; throw new Error('runtime replaced by adapter'); }
+  $executeRawUnsafe(query: string, ...params: any[]): Promise<number> { void query; void params; throw new Error('runtime replaced by adapter'); }
   user: any;
   shop: any;
   shopOperatingHours: any;
